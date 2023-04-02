@@ -1,0 +1,19 @@
+{
+  "name": "classroom-typescript-template",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^18"
+  },
+  "scripts": {
+    "test": "node --no-warnings --loader ts-node/esm/transpile-only --experimental-specifier-resolution=node --test ./index.test.ts",
+    "test:watch": "node --no-warnings --loader ts-node/esm/transpile-only --experimental-specifier-resolution=node --test --watch ./index.test.ts"
+  },
+  "dependencies": {
+    "@types/node": "^18.15.11",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.3"
+  }
+}
