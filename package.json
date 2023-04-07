@@ -1,0 +1,17 @@
+{
+  "name": "@coorpacademy/classroom",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "./classrooms/*"
+  ],
+  "engines": {
+    "node": "^18"
+  },
+  "scripts": {
+    "test": "xo && npm run test --workspaces"
+  },
+  "dependencies": {
+    "xo": "^0.54.0"
+  }
+}
