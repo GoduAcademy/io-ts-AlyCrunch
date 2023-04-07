@@ -99,7 +99,12 @@ type ComplexObject = {
 // TODO write the io-ts type
 const ComplexObject: io.Type<ComplexObject> = io.intersection([
   io.type({
-    falsyValues: io.union([io.null, io.undefined,io.literal(false), io.literal(0), io.literal('')]),
+    falsyValues: io.union([
+      io.null, 
+      io.undefined,
+      io.literal(false),
+      io.literal(0), 
+      io.literal('')])
   }),
   io.partial({
     arrayOfTuple: io.array(io.tuple([io.number, io.string]))

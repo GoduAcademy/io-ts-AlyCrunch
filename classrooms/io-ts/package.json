@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "cmd:test": "node --no-warnings --loader ts-node/esm/transpile-only --experimental-specifier-resolution=node --test",
-    "test": "npm run cmd:test -- ./index.ts",
-    "test:watch": "npm run cmd:test -- --watch ./index.ts"
+    "test": "npm run cmd:test -- ./*.ts",
+    "test:watch": "npm run cmd:test -- --watch ./*.ts"
   },
   "dependencies": {
     "@types/node": "^18.15.11",
