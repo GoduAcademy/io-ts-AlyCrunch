@@ -8,7 +8,7 @@
 /* eslint-disable unicorn/no-array-for-each */
 import assert from 'node:assert';
 import test from 'node:test';
-import * as io from 'io-ts';
+import * as t from 'io-ts';
 import {getOrElse} from 'fp-ts/lib/Either';
 import {pipe} from 'fp-ts/lib/function';
 
@@ -27,10 +27,10 @@ const unsafeProcessComplexObject = (object: unknown): number => {
   if (
     typeof object === 'object' &&
     object !== null &&
-    'value' in object &&
-    typeof object.value === 'number'
+    'property' in object &&
+    typeof object.property === 'number'
   ) {
-    return object.value;
+    return object.property;
   }
 
   // And throw an error if the type is wrong.
@@ -54,7 +54,6 @@ type User = {name: string; age: number};
 const unsafeParseUser = (json: string): User => {
   const object: unknown = JSON.parse(json);
   if (false /* TODO write the type constraints */) {
-    // @ts-expect-error until type constraints are written
     const {age, name} = object;
     return {age, name};
   }
@@ -62,7 +61,7 @@ const unsafeParseUser = (json: string): User => {
   throw new TypeError('Invalid object');
 };
 
-await test('unsafeParseUser', {skip: true}, () => {
+await test('unsafeParseUser', () => {
   const USER = {name: 'John', age: 42};
   assert.deepStrictEqual(unsafeParseUser(JSON.stringify(USER)), USER);
 
@@ -75,24 +74,59 @@ await test('unsafeParseUser', {skip: true}, () => {
 /*
  * Io-ts provides a way to define a type and a function to parse a value.
  */
-const User = io.type({
-  name: io.string,
-  age: io.number,
+const User = t.type({
+  name: t.string,
+  age: t.number,
 });
 const parseUser = (json: string): User => pipe(json, JSON.parse, decode(User));
 
 /*
  * Exercice 2: Write the io-ts type to represent the following type.
+ * Refer you to `io-ts` documentation to find the combinator.
+ * https://github.com/gcanti/io-ts/blob/master/index.md#implemented-types--combinators
  */
 
 type ComplexObject = {
-  falsyValues: null | undefined | false | 0 | '';
-  arrayOfTuple?: Array<[number, string]>;
+  falsyValue: null | undefined | false | 0 | '';
+  arrayOfTuples?: Array<[number, string]>;
 };
 
 // TODO write the io-ts type
-// @ts-expect-error until type constraints are written
-const ComplexObject: io.Type<ComplexObject> = io.never;
+const ComplexObject: t.Type<ComplexObject> = t.never;
+
+await test('ComplexObject', () => {
+  const VALID_OBJECTS = [
+    {falsyValue: null},
+    {falsyValue: undefined},
+    {falsyValue: false},
+    {falsyValue: 0},
+    {falsyValue: ''},
+    {falsyValue: null, arrayOfTuples: []},
+    {falsyValue: null, arrayOfTuples: [[1, 'a']]},
+    {
+      falsyValue: null,
+      arrayOfTuples: [
+        [1, 'a'],
+        [2, 'b'],
+      ],
+    },
+  ];
+  VALID_OBJECTS.forEach((object) => {
+    assert.doesNotThrow(() => {
+      decode(ComplexObject)(object);
+    });
+  });
+
+  const INVALID_OBJECTS = [
+    {falsyValue: true},
+    {falsyValue: 1},
+    {falsyValue: 'foo'},
+    {falsyValue: null, arrayOfTuples: [1, 'a']},
+  ];
+  INVALID_OBJECTS.forEach((object) => {
+    assert.throws(() => decode(ComplexObject)(object), TypeError);
+  });
+});
 
 /*
  * ## Phantom types and smart constructors
@@ -100,7 +134,7 @@ const ComplexObject: io.Type<ComplexObject> = io.never;
  * But TypeScript types are not enough to handle all contraints about data
  * validation. Take the following example. As you know, we can divide by zero.
  * JavaScript solve the problem by returning `Infinity`.
- * How can we prevent this ?
+ * How could we prevent to call the function with a divisor equal to zero ?
  */
 
 const unsafeDivide = (dividend: number, divisor: number): number =>
@@ -131,43 +165,39 @@ const NonZeroFinite = (n: number): NonZeroFinite => {
 const divide = (dividend: number, divisor: NonZeroFinite): number =>
   dividend / divisor;
 
-await test('divide', (t) => {
-  // @ts-expect-error We have to cast 2 to NonZeroFinite
-  assert.strictEqual(divide(4, 2), 2);
+// @ts-expect-error We have to cast 2 to NonZeroFinite
+assert.strictEqual(divide(4, 2), 2);
 
-  assert.strictEqual(divide(4, NonZeroFinite(2)), 2);
+assert.strictEqual(divide(4, NonZeroFinite(2)), 2);
 
-  assert.throws(() => divide(1, NonZeroFinite(0)), TypeError);
-});
+assert.throws(() => divide(1, NonZeroFinite(0)), TypeError);
 
 /*
  * Io-ts allows us to define phantom types and type guards.
  */
 
-type Palindrome = io.Branded<string, {readonly Palindrome: symbol}>;
-const Palindrome = io.brand(
-  io.string,
+type Palindrome = t.Branded<string, {readonly Palindrome: symbol}>;
+const Palindrome = t.brand(
+  t.string,
   (s: string): s is Palindrome => [...s].reverse().join('') === s,
   'Palindrome',
 );
 
-await test('Palindrome', (t) => {
-  const VALID_PALINDROMES = ['racecar', 'level', 'noon'];
-  VALID_PALINDROMES.forEach((s) => {
-    assert.strictEqual(Palindrome.is(s), true);
-  });
+const VALID_PALINDROMES = ['racecar', 'level', 'noon'];
+VALID_PALINDROMES.forEach((s) => {
+  assert.strictEqual(Palindrome.is(s), true);
+});
 
-  const INVALID_PALINDROMES = ['hello', 'world', 'foo'];
-  INVALID_PALINDROMES.forEach((s) => {
-    assert.strictEqual(Palindrome.is(s), false);
-  });
+const INVALID_PALINDROMES = ['hello', 'world', 'foo'];
+INVALID_PALINDROMES.forEach((s) => {
+  assert.strictEqual(Palindrome.is(s), false);
 });
 
 /**
  * Utils
  */
 
-function decode<T>(codec: io.Type<T>) {
+function decode<T>(codec: t.Type<T>) {
   return (value: unknown) =>
     pipe(
       value,
