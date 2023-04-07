@@ -174,22 +174,34 @@ assert.strictEqual(divide(4, NonZeroFinite(2)), 2);
 assert.throws(() => divide(1, NonZeroFinite(0)), TypeError);
 
 /*
- * Io-ts allows us to define phantom types and type guards.
+ * Io-ts provides us a way to define a phantom type and a smart constructor.
  */
 
-type Palindrome = t.Branded<string, {readonly Palindrome: symbol}>;
-const Palindrome = t.brand(
-  t.string,
-  (s: string): s is Palindrome => [...s].reverse().join('') === s,
-  'Palindrome',
-);
+type Positive = t.Branded<number, {readonly Positive: symbol}>;
+const Positive = t.brand(t.number, (n): n is Positive => n >= 0, 'Positive');
 
-const VALID_PALINDROMES = ['racecar', 'level', 'noon'];
-VALID_PALINDROMES.forEach((s) => {
-  assert.strictEqual(Palindrome.is(s), true);
-});
+const sqrt = (n: Positive): number => Math.sqrt(n);
 
-const INVALID_PALINDROMES = ['hello', 'world', 'foo'];
-INVALID_PALINDROMES.forEach((s) => {
-  assert.strictEqual(Palindrome.is(s), false);
+sqrt(decode(Positive)(4));
+
+/*
+ * Exercice 3: Write the io-ts type to represent the following type.
+ * Refer you to `io-ts` documentation to find the combinator.
+ * https://github.com/gcanti/io-ts/blob/master/index.md#implemented-types--combinators
+ */
+
+// TODO write the Palindrome branded type
+type Palindrome = t.NeverC;
+const Palindrome = t.never;
+
+await test('Palindrome', () => {
+  const VALID_PALINDROMES = ['racecar', 'level', 'noon'];
+  VALID_PALINDROMES.forEach((s) => {
+    assert.strictEqual(Palindrome.is(s), true);
+  });
+
+  const INVALID_PALINDROMES = ['hello', 'world', 'foo'];
+  INVALID_PALINDROMES.forEach((s) => {
+    assert.strictEqual(Palindrome.is(s), false);
+  });
 });
