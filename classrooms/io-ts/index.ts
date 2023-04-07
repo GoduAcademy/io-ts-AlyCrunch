@@ -53,8 +53,14 @@ const typedProcessComplexObject = (object: {value: number}): number =>
 type User = {name: string; age: number};
 const unsafeParseUser = (json: string): User => {
   const object: unknown = JSON.parse(json);
-  if (false /* TODO write the type constraints */) {
-    // @ts-expect-error until type constraints are written
+  if (
+    typeof object === 'object' &&
+    object !== null &&
+    'name' in object &&
+    typeof object.name === 'string' &&
+    'age' in object &&
+    typeof object.age === 'number'
+  ) {
     const {age, name} = object;
     return {age, name};
   }
@@ -62,7 +68,7 @@ const unsafeParseUser = (json: string): User => {
   throw new TypeError('Invalid object');
 };
 
-await test('unsafeParseUser', {skip: true}, () => {
+await test('unsafeParseUser', () => {
   const USER = {name: 'John', age: 42};
   assert.deepStrictEqual(unsafeParseUser(JSON.stringify(USER)), USER);
 
@@ -91,8 +97,14 @@ type ComplexObject = {
 };
 
 // TODO write the io-ts type
-// @ts-expect-error until type constraints are written
-const ComplexObject: io.Type<ComplexObject> = io.never;
+const ComplexObject: io.Type<ComplexObject> = io.intersection([
+  io.type({
+    falsyValues: io.union([io.null, io.undefined,io.literal(false), io.literal(0), io.literal('')]),
+  }),
+  io.partial({
+    arrayOfTuple: io.array(io.tuple([io.number, io.string]))
+  })
+]);
 
 /*
  * ## Phantom types and smart constructors
