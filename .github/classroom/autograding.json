@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "io&#45;ts",
+      "setup": "cd classrooms/io-ts && npm install",
+      "run": "cd classrooms/io-ts && npm test",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 1
+    }
+  ]
+}
