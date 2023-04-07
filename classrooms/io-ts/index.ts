@@ -2,8 +2,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-redeclare */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable no-constant-condition */
 /* eslint-disable no-warning-comments */
 /* eslint-disable unicorn/no-array-for-each */
 import assert from 'node:assert';
@@ -100,15 +98,16 @@ type ComplexObject = {
 const ComplexObject: io.Type<ComplexObject> = io.intersection([
   io.type({
     falsyValues: io.union([
-      io.null, 
+      io.null,
       io.undefined,
       io.literal(false),
-      io.literal(0), 
-      io.literal('')])
+      io.literal(0),
+      io.literal(''),
+    ]),
   }),
   io.partial({
-    arrayOfTuple: io.array(io.tuple([io.number, io.string]))
-  })
+    arrayOfTuple: io.array(io.tuple([io.number, io.string])),
+  }),
 ]);
 
 /*
