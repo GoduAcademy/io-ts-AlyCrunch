@@ -11,6 +11,7 @@ import test from 'node:test';
 import * as t from 'io-ts';
 import {getOrElse} from 'fp-ts/lib/Either';
 import {pipe} from 'fp-ts/lib/function';
+import {decode} from './util.js';
 
 /*
  * # Introduction to io-ts
@@ -192,18 +193,3 @@ const INVALID_PALINDROMES = ['hello', 'world', 'foo'];
 INVALID_PALINDROMES.forEach((s) => {
   assert.strictEqual(Palindrome.is(s), false);
 });
-
-/**
- * Utils
- */
-
-function decode<T>(codec: t.Type<T>) {
-  return (value: unknown) =>
-    pipe(
-      value,
-      codec.decode,
-      getOrElse((): T => {
-        throw new TypeError('Invalid object');
-      }),
-    );
-}
