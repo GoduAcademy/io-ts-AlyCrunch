@@ -9,7 +9,7 @@
     "node": "^18"
   },
   "scripts": {
-    "test": "xo && npm run test --workspaces"
+    "test": "xo"
   },
   "dependencies": {
     "xo": "^0.54.0"
