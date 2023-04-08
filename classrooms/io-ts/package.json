@@ -3,14 +3,28 @@
   "main": "index.ts",
   "type": "module",
   "scripts": {
-    "cmd:test": "node --no-warnings --loader ts-node/esm/transpile-only --experimental-specifier-resolution=node --test",
-    "test": "npm run cmd:test -- ./*.ts",
-    "test:watch": "npm run cmd:test -- --watch ./*.ts"
+    "start": "ava -svw --fail-fast",
+    "pretest": "tsc --noEmit",
+    "test": "ava"
   },
   "dependencies": {
     "@types/node": "^18.15.11",
+    "ava": "^5.2.0",
     "fp-ts": "^2.13.1",
     "io-ts": "^2.2.20",
     "ts-node": "^10.9.1"
+  },
+  "ava": {
+    "extensions": {
+      "ts": "module"
+    },
+    "nodeArguments": [
+      "--no-warnings",
+      "--loader=ts-node/esm",
+      "--experimental-specifier-resolution=node"
+    ],
+    "files": [
+      "index.ts"
+    ]
   }
 }
