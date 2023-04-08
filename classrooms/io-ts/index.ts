@@ -1,17 +1,9 @@
-/* eslint-disable new-cap */
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable @typescript-eslint/naming-convention */
-/* eslint-disable @typescript-eslint/no-redeclare */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable no-constant-condition */
-/* eslint-disable no-warning-comments */
-/* eslint-disable unicorn/no-array-for-each */
+import {Buffer} from 'node:buffer';
 import assert from 'node:assert';
 import test from 'node:test';
 import * as t from 'io-ts';
-import {getOrElse} from 'fp-ts/lib/Either';
 import {pipe} from 'fp-ts/lib/function';
-import {decode} from './util.js';
+import {decode, encode} from './util.js';
 
 /*
  * # Introduction to io-ts
@@ -191,7 +183,6 @@ sqrt(decode(Positive)(4));
  */
 
 // TODO write the Palindrome branded type
-type Palindrome = t.NeverC;
 const Palindrome = t.never;
 
 await test('Palindrome', () => {
@@ -204,4 +195,174 @@ await test('Palindrome', () => {
   INVALID_PALINDROMES.forEach((s) => {
     assert.strictEqual(Palindrome.is(s), false);
   });
+});
+
+/*
+ * ## Generic types
+ *
+ * TypeScript allows us to define a type as a parameter of another type. We
+ * call it a generic type.
+ */
+
+type Either<A, B> = {type: 'left'; value: A} | {type: 'right'; value: B};
+const Either = <A, B>(A: t.Type<A>, B: t.Type<B>) =>
+  t.union([
+    t.type({type: t.literal('left'), value: A}),
+    t.type({type: t.literal('right'), value: B}),
+  ]);
+
+const NumberOrString = Either(t.number, t.string);
+
+const VALID_NUMBER_OR_STRING = [
+  {type: 'left', value: 1},
+  {type: 'right', value: 'foo'},
+];
+VALID_NUMBER_OR_STRING.forEach((v) => {
+  assert.doesNotThrow(() => decode(NumberOrString)(v));
+});
+
+const INVALID_NUMBER_OR_STRING = [
+  {type: 'right', value: 1},
+  {type: 'left', value: 'foo'},
+];
+INVALID_NUMBER_OR_STRING.forEach((v) => {
+  assert.throws(() => decode(NumberOrString)(v));
+});
+
+/*
+ * Exercice 4: Write the io-ts type to represent the following type.
+ */
+
+type HTTPResult =
+  | {status: 200; body: string}
+  | {status: 401; body: 'Unauthorized'}
+  | {status: 403; body: 'Forbidden'}
+  | {status: 404; body: 'Not found'}
+  | {status: 500; body: 'Internal server error'};
+
+// TODO write the HTTPResult type
+const HTTPResult = t.never;
+
+await test('HTTPResult', () => {
+  const VALID_HTTP_RESULTS = [
+    {status: 200, body: 'Hello world'},
+    {status: 401, body: 'Unauthorized'},
+    {status: 403, body: 'Forbidden'},
+    {status: 404, body: 'Not found'},
+    {status: 500, body: 'Internal server error'},
+  ];
+  VALID_HTTP_RESULTS.forEach((v) => {
+    assert.doesNotThrow(() => decode(HTTPResult)(v));
+  });
+
+  const INVALID_HTTP_RESULTS = [
+    {status: 200, body: 1},
+    {status: 401, body: 'Hello world'},
+    {status: 403, body: 1},
+    {status: 404, body: 1},
+    {status: 500, body: 1},
+  ];
+  INVALID_HTTP_RESULTS.forEach((v) => {
+    assert.throws(() => decode(HTTPResult)(v));
+  });
+});
+
+/*
+ * ## Custom types
+ *
+ * A io-ts `t.Type<A, O, I>` is defined by three types:
+ * - `A` that is the type of the decoded value
+ * - `O` that is the type of the encoded value
+ * - `I` that is the type of the input value
+ */
+
+t.string satisfies t.Type<string, string, unknown>;
+
+/*
+ * Lets define a custom type that represents a date from a ISO string to a
+ * timestamp.
+ */
+
+const DateType = new t.Type<Date, string, number>(
+  'Date',
+  (u): u is Date => u instanceof Date,
+  (u, c) => (Number.isFinite(u) ? t.success(new Date(u)) : t.failure(u, c)),
+  (a): string => a.toISOString(),
+);
+
+const timestampDate = 946_684_800_000;
+
+const date = decode(DateType)(timestampDate);
+// > new Date(Date.UTC(2000, 00, 01))
+
+const stringDate = encode(DateType)(date);
+// > 2000-01-01T00:00:00.000Z
+
+/*
+ * Exercice 5: Write the io-ts type to represent a number that can be decode
+ * from a string and encode to a string..
+ */
+
+// TODO write the StringToNumber type
+const StringToNumber = t.never;
+
+await test('StringToNumber', () => {
+  const VALID_NUMBERS: Array<[string, number, string]> = [
+    ['1', 1, '1'],
+    ['1.1', 1.1, '1.1'],
+    ['1e1', 10, '10'],
+  ];
+  VALID_NUMBERS.forEach(([input, value, output]) => {
+    assert.strictEqual(decode(StringToNumber)(input), value);
+    assert.strictEqual(encode(StringToNumber)(value), output);
+  });
+
+  const INVALID_NUMBERS = ['foo', 'bar', 'baz'];
+  INVALID_NUMBERS.forEach((input) => {
+    assert.strictEqual(decode(StringToNumber)(input), Number.NaN);
+  });
+});
+
+/*
+ * ## Pipe combinator
+ *
+ * The pipe combinator allows us to combine multiple io-ts types.
+ */
+
+const FromJSON = new t.Type<unknown, string, string>(
+  'FromJSON',
+  (u): u is unknown => true,
+  (u, c) => {
+    try {
+      return t.success(JSON.parse(u));
+    } catch {
+      return t.failure(u, c);
+    }
+  },
+  (a): string => JSON.stringify(a),
+);
+
+const Product = t.type({
+  sku: t.string,
+});
+
+const ProductFromJSON = t.string.pipe(FromJSON).pipe(Product);
+
+const phone = decode(ProductFromJSON)('{"sku": "phone"}');
+const phoneString = encode(ProductFromJSON)(phone);
+
+/*
+ * Exercice 6: Write the io-ts type to represent
+ */
+
+// TODO write the ProductFromBase64JSON type
+const ProductFromBase64JSON = t.never;
+
+await test('ProductFromBase64JSON', {only: true}, () => {
+  const book = {sku: 'book'};
+  const bookBase64 = pipe(book, JSON.stringify, (s) =>
+    Buffer.from(s, 'utf8').toString('base64'),
+  );
+  assert.deepStrictEqual(decode(ProductFromBase64JSON)(bookBase64), book);
+  assert.strictEqual(encode(ProductFromBase64JSON)(book), bookBase64);
 });
