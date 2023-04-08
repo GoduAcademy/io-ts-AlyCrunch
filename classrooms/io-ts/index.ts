@@ -1,7 +1,7 @@
 import {Buffer} from 'node:buffer';
 import assert from 'node:assert';
-import test from 'node:test';
-import * as t from 'io-ts';
+import test from 'ava';
+import * as io from 'io-ts';
 import {pipe} from 'fp-ts/lib/function';
 import {decode, encode} from './util.js';
 
@@ -54,22 +54,24 @@ const unsafeParseUser = (json: string): User => {
   throw new TypeError('Invalid object');
 };
 
-await test('unsafeParseUser', () => {
+test('unsafeParseUser', async (t) => {
   const USER = {name: 'John', age: 42};
-  assert.deepStrictEqual(unsafeParseUser(JSON.stringify(USER)), USER);
+  t.deepEqual(unsafeParseUser(JSON.stringify(USER)), USER);
 
   const INVALID_OBJECTS: unknown[] = [{name: 'John'}, {age: 42}];
-  INVALID_OBJECTS.forEach((object) => {
-    assert.throws(() => unsafeParseUser(JSON.stringify(object)), TypeError);
-  });
+  INVALID_OBJECTS.map((object) =>
+    t.throws(() => unsafeParseUser(JSON.stringify(object)), {
+      instanceOf: TypeError,
+    }),
+  );
 });
 
 /*
  * Io-ts provides a way to define a type and a function to parse a value.
  */
-const User = t.type({
-  name: t.string,
-  age: t.number,
+const User = io.type({
+  name: io.string,
+  age: io.number,
 });
 const parseUser = (json: string): User => pipe(json, JSON.parse, decode(User));
 
@@ -85,9 +87,9 @@ type ComplexObject = {
 };
 
 // TODO write the io-ts type
-const ComplexObject: t.Type<ComplexObject> = t.never;
+const ComplexObject: io.Type<ComplexObject> = io.never;
 
-await test('ComplexObject', () => {
+test('ComplexObject', (t) => {
   const VALID_OBJECTS = [
     {falsyValue: null},
     {falsyValue: undefined},
@@ -104,8 +106,8 @@ await test('ComplexObject', () => {
       ],
     },
   ];
-  VALID_OBJECTS.forEach((object) => {
-    assert.doesNotThrow(() => {
+  VALID_OBJECTS.map((object) => {
+    t.notThrows(() => {
       decode(ComplexObject)(object);
     });
   });
@@ -116,8 +118,8 @@ await test('ComplexObject', () => {
     {falsyValue: 'foo'},
     {falsyValue: null, arrayOfTuples: [1, 'a']},
   ];
-  INVALID_OBJECTS.forEach((object) => {
-    assert.throws(() => decode(ComplexObject)(object), TypeError);
+  INVALID_OBJECTS.map((object) => {
+    t.throws(() => decode(ComplexObject)(object), {instanceOf: TypeError});
   });
 });
 
@@ -169,8 +171,8 @@ assert.throws(() => divide(1, NonZeroFinite(0)), TypeError);
  * Io-ts provides us a way to define a phantom type and a smart constructor.
  */
 
-type Positive = t.Branded<number, {readonly Positive: symbol}>;
-const Positive = t.brand(t.number, (n): n is Positive => n >= 0, 'Positive');
+type Positive = io.Branded<number, {readonly Positive: symbol}>;
+const Positive = io.brand(io.number, (n): n is Positive => n >= 0, 'Positive');
 
 const sqrt = (n: Positive): number => Math.sqrt(n);
 
@@ -183,18 +185,14 @@ sqrt(decode(Positive)(4));
  */
 
 // TODO write the Palindrome branded type
-const Palindrome = t.never;
+const Palindrome = io.never;
 
-await test('Palindrome', () => {
+test('Palindrome', (t) => {
   const VALID_PALINDROMES = ['racecar', 'level', 'noon'];
-  VALID_PALINDROMES.forEach((s) => {
-    assert.strictEqual(Palindrome.is(s), true);
-  });
+  VALID_PALINDROMES.map((s) => t.true(Palindrome.is(s)));
 
   const INVALID_PALINDROMES = ['hello', 'world', 'foo'];
-  INVALID_PALINDROMES.forEach((s) => {
-    assert.strictEqual(Palindrome.is(s), false);
-  });
+  INVALID_PALINDROMES.map((s) => t.false(Palindrome.is(s)));
 });
 
 /*
@@ -205,19 +203,19 @@ await test('Palindrome', () => {
  */
 
 type Either<A, B> = {type: 'left'; value: A} | {type: 'right'; value: B};
-const Either = <A, B>(A: t.Type<A>, B: t.Type<B>) =>
-  t.union([
-    t.type({type: t.literal('left'), value: A}),
-    t.type({type: t.literal('right'), value: B}),
+const Either = <A, B>(A: io.Type<A>, B: io.Type<B>) =>
+  io.union([
+    io.type({type: io.literal('left'), value: A}),
+    io.type({type: io.literal('right'), value: B}),
   ]);
 
-const NumberOrString = Either(t.number, t.string);
+const NumberOrString = Either(io.number, io.string);
 
 const VALID_NUMBER_OR_STRING = [
   {type: 'left', value: 1},
   {type: 'right', value: 'foo'},
 ];
-VALID_NUMBER_OR_STRING.forEach((v) => {
+VALID_NUMBER_OR_STRING.map((v) => {
   assert.doesNotThrow(() => decode(NumberOrString)(v));
 });
 
@@ -225,7 +223,7 @@ const INVALID_NUMBER_OR_STRING = [
   {type: 'right', value: 1},
   {type: 'left', value: 'foo'},
 ];
-INVALID_NUMBER_OR_STRING.forEach((v) => {
+INVALID_NUMBER_OR_STRING.map((v) => {
   assert.throws(() => decode(NumberOrString)(v));
 });
 
@@ -233,60 +231,61 @@ INVALID_NUMBER_OR_STRING.forEach((v) => {
  * Exercice 4: Write the io-ts type to represent the following type.
  */
 
-type HTTPResult =
-  | {status: 200; body: string}
-  | {status: 401; body: 'Unauthorized'}
-  | {status: 403; body: 'Forbidden'}
-  | {status: 404; body: 'Not found'}
-  | {status: 500; body: 'Internal server error'};
+type Result<Status, Body> = {status: Status; body: Body};
+type CustomResult =
+  | Result<200, string>
+  | Result<401, 'Unauthorized'>
+  | Result<403, 'Forbidden'>
+  | Result<404, 'Not found'>
+  | Result<500, 'Internal server error'>;
 
 // TODO write the HTTPResult type
-const HTTPResult = t.never;
+const CustomResult: io.Type<CustomResult> = io.never;
 
-await test('HTTPResult', () => {
-  const VALID_HTTP_RESULTS = [
+test('CustomResult', (t) => {
+  const VALID_CUSTOM_RESULTS = [
     {status: 200, body: 'Hello world'},
     {status: 401, body: 'Unauthorized'},
     {status: 403, body: 'Forbidden'},
     {status: 404, body: 'Not found'},
     {status: 500, body: 'Internal server error'},
   ];
-  VALID_HTTP_RESULTS.forEach((v) => {
-    assert.doesNotThrow(() => decode(HTTPResult)(v));
+  VALID_CUSTOM_RESULTS.map((v) => {
+    t.notThrows(() => decode(CustomResult)(v));
   });
 
-  const INVALID_HTTP_RESULTS = [
+  const INVALID_CUSTOM_RESULTS = [
     {status: 200, body: 1},
     {status: 401, body: 'Hello world'},
     {status: 403, body: 1},
     {status: 404, body: 1},
     {status: 500, body: 1},
   ];
-  INVALID_HTTP_RESULTS.forEach((v) => {
-    assert.throws(() => decode(HTTPResult)(v));
-  });
+  INVALID_CUSTOM_RESULTS.map((v) =>
+    t.throws(() => decode(CustomResult)(v), {instanceOf: TypeError}),
+  );
 });
 
 /*
  * ## Custom types
  *
- * A io-ts `t.Type<A, O, I>` is defined by three types:
+ * A io-ts `io.Type<A, O, I>` is defined by three types:
  * - `A` that is the type of the decoded value
  * - `O` that is the type of the encoded value
  * - `I` that is the type of the input value
  */
 
-t.string satisfies t.Type<string, string, unknown>;
+io.string satisfies io.Type<string, string, unknown>;
 
 /*
  * Lets define a custom type that represents a date from a ISO string to a
  * timestamp.
  */
 
-const DateType = new t.Type<Date, string, number>(
+const DateType = new io.Type<Date, string, number>(
   'Date',
   (u): u is Date => u instanceof Date,
-  (u, c) => (Number.isFinite(u) ? t.success(new Date(u)) : t.failure(u, c)),
+  (u, c) => (Number.isFinite(u) ? io.success(new Date(u)) : io.failure(u, c)),
   (a): string => a.toISOString(),
 );
 
@@ -304,22 +303,22 @@ const stringDate = encode(DateType)(date);
  */
 
 // TODO write the StringToNumber type
-const StringToNumber = t.never;
+const StringToNumber = io.never;
 
-await test('StringToNumber', () => {
+test('StringToNumber', (t) => {
   const VALID_NUMBERS: Array<[string, number, string]> = [
     ['1', 1, '1'],
     ['1.1', 1.1, '1.1'],
     ['1e1', 10, '10'],
   ];
-  VALID_NUMBERS.forEach(([input, value, output]) => {
-    assert.strictEqual(decode(StringToNumber)(input), value);
-    assert.strictEqual(encode(StringToNumber)(value), output);
+  VALID_NUMBERS.map(([input, value, output]) => {
+    t.is(decode(StringToNumber)(input), value);
+    t.is(encode(StringToNumber)(value), output);
   });
 
   const INVALID_NUMBERS = ['foo', 'bar', 'baz'];
-  INVALID_NUMBERS.forEach((input) => {
-    assert.strictEqual(decode(StringToNumber)(input), Number.NaN);
+  INVALID_NUMBERS.map((input) => {
+    t.is(decode(StringToNumber)(input), Number.NaN);
   });
 });
 
@@ -329,24 +328,24 @@ await test('StringToNumber', () => {
  * The pipe combinator allows us to combine multiple io-ts types.
  */
 
-const FromJSON = new t.Type<unknown, string, string>(
+const FromJSON = new io.Type<unknown, string, string>(
   'FromJSON',
   (u): u is unknown => true,
   (u, c) => {
     try {
-      return t.success(JSON.parse(u));
+      return io.success(JSON.parse(u));
     } catch {
-      return t.failure(u, c);
+      return io.failure(u, c);
     }
   },
   (a): string => JSON.stringify(a),
 );
 
-const Product = t.type({
-  sku: t.string,
+const Product = io.type({
+  sku: io.string,
 });
 
-const ProductFromJSON = t.string.pipe(FromJSON).pipe(Product);
+const ProductFromJSON = io.string.pipe(FromJSON).pipe(Product);
 
 const phone = decode(ProductFromJSON)('{"sku": "phone"}');
 const phoneString = encode(ProductFromJSON)(phone);
@@ -356,13 +355,13 @@ const phoneString = encode(ProductFromJSON)(phone);
  */
 
 // TODO write the ProductFromBase64JSON type
-const ProductFromBase64JSON = t.never;
+const ProductFromBase64JSON = io.never;
 
-await test('ProductFromBase64JSON', {only: true}, () => {
+test('ProductFromBase64JSON', (t) => {
   const book = {sku: 'book'};
   const bookBase64 = pipe(book, JSON.stringify, (s) =>
     Buffer.from(s, 'utf8').toString('base64'),
   );
-  assert.deepStrictEqual(decode(ProductFromBase64JSON)(bookBase64), book);
-  assert.strictEqual(encode(ProductFromBase64JSON)(book), bookBase64);
+  t.deepEqual(decode(ProductFromBase64JSON)(bookBase64), book);
+  t.is(encode(ProductFromBase64JSON)(book), bookBase64);
 });
