@@ -265,7 +265,20 @@ type CustomResult =
   | Result<500, 'Internal server error'>;
 
 // TODO write the HTTPResult type
-const CustomResult: io.Type<CustomResult> = io.never;
+
+const Result = <Status, Body>(Status: io.Type<Status>, Body: io.Type<Body>) =>
+  io.type({
+    status: Status,
+    body: Body
+  })
+
+const CustomResult: io.Type<CustomResult> = io.union([
+  Result(io.literal(200), io.string),
+  Result(io.literal(401), io.literal('Unauthorized')),
+  Result(io.literal(403), io.literal('Forbidden')),
+  Result(io.literal(404), io.literal('Not found')),
+  Result(io.literal(500), io.literal('Internal server error')),
+]);
 
 test('CustomResult', (t) => {
   const VALID_CUSTOM_RESULTS = [
@@ -328,7 +341,18 @@ const stringDate = encode(DateType)(date);
  */
 
 // TODO write the StringToNumber type
-const StringToNumber = io.never;
+const StringToNumber = new io.Type<number, string>(
+  'StringToNumber',
+  (u): u is number => typeof u === 'number',
+  (u, c) => {
+    if (typeof u === 'string') {
+      const parsed = parseFloat(u);
+      return io.success(parsed);
+    }
+    return io.failure(u, c);
+  },
+  (a) => a.toString()
+);
 
 test('StringToNumber', (t) => {
   const VALID_NUMBERS: Array<[string, number, string]> = [
@@ -380,7 +404,21 @@ const phoneString = encode(ProductFromJSON)(phone);
  */
 
 // TODO write the ProductFromBase64JSON type
-const ProductFromBase64JSON = io.never;
+
+const Base64 = new io.Type<string, string, string>(
+  'Base64',
+  (u): u is string => true,
+  (u, c) => {
+    try {
+      return io.success(Buffer.from(u, 'base64').toString('ascii'));
+    } catch {
+      return io.failure(u, c);
+    }
+  },
+  (a): string => Buffer.from(a, 'utf8').toString('base64'),
+);
+
+const ProductFromBase64JSON = io.string.pipe(Base64).pipe(FromJSON).pipe(Product);
 
 test('ProductFromBase64JSON', (t) => {
   const book = {sku: 'book'};
